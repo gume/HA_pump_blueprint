@@ -91,7 +91,7 @@ action:
         sequence:
           - service: input_select.select_option
             data:
-              option: extended
+              option: "extended"
             target:
               entity_id: !input mode_pump
           - service: timer.start
