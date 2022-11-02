@@ -1,0 +1,134 @@
+blueprint:
+  name: Pump control with delayed off
+  description: Control a pump, which has to run a bit longer after switching it off
+  domain: automation
+  input:
+    switch_virtual_pump:
+      name: Virtual pump switch
+      description: The switch which can be controlled manually/automatically
+      selector:
+        entity:
+          domain: switch          
+    switch_real_pump:
+      name: Real pump switch
+      description: The switch which is controlled by this automation
+      selector:
+        entity:
+          domain: switch
+    timer_pump:
+      name: Timer
+      description: Timer used to measure the extended running time
+      selector:
+        entity:
+          domain: timer
+    mode_pump:
+      name: Mode input selector
+      description: The actual state of the virtual pump
+      selector:
+        entity:
+          domain: input_selector
+    delay:
+      name: Delay
+      description: The delay value
+      selector:
+        text:
+  
+  
+trigger:
+  - platform: event
+    event_type: call_service
+    event_data:
+      domain: switch
+      service: turn_on
+      service_data:
+        entity_id:
+          - !input switch_virtual_pump
+    id: turn_on
+  - platform: event
+    event_type: call_service
+    event_data:
+      domain: switch
+      service: turn_off
+      service_data:
+        entity_id:
+          - !input switch_virtual_pump
+    id: turn_off
+  - platform: state
+    entity_id:
+      - !input switch_real_pump
+    id: Real switch change
+  - platform: state
+    entity_id:
+      - !input timer_pump
+    to: idle
+    id: Timer
+condition: []
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: turn_on
+        sequence:
+          - service: timer.cancel
+            data: {}
+            target:
+              entity_id: !input timer_pump
+          - service: input_select.select_option
+            data:
+              option: "on"
+            target:
+              entity_id: !input mode_pump
+          - service: switch.turn_on
+            data: {}
+            target:
+              entity_id: !input switch_real_pump
+      - conditions:
+          - condition: trigger
+            id: turn_off
+          - condition: state
+            entity_id: !input mode_pump
+            state: "on"
+        sequence:
+          - service: input_select.select_option
+            data:
+              option: extended
+            target:
+              entity_id: !input mode_pump
+          - service: timer.start
+            data:
+              duration: !input delay
+            target:
+              entity_id: !input timer_pump
+      - conditions:
+          - condition: trigger
+            id: Real switch change
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: state
+                    entity_id: !input mode_pump
+                    state: "off"
+                sequence:
+                  - service: switch.turn_off
+                    data: {}
+                    target:
+                      entity_id: !input switch_real_pump
+            default:
+              - service: switch.turn_on
+                data: {}
+                target:
+                  entity_id: !input switch_real_pump
+      - conditions:
+          - condition: trigger
+            id: Timer
+        sequence:
+          - service: input_select.select_option
+            data:
+              option: "off"
+            target:
+              entity_id: !input mode_pump
+          - service: switch.turn_off
+            data: {}
+            target:
+              entity_id: !input switch_real_pump
+mode: queued
