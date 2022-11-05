@@ -33,8 +33,6 @@ blueprint:
       selector:
         text:
   
-  
-trigger:
 trigger:
   - platform: homeassistant
     event: start
